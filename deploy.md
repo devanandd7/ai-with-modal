@@ -1,106 +1,68 @@
-# 🚀 Modal AI Server Deploy Guide (Hinglish)
+# AI Server Deploy Guide (Hinglish)
 
----
+## Pehle Baar Setup
 
-## Step 0: Systemd Ready ho?
-
-**Pehle yeh install karo:**
 ```bash
 pip install modal
+python -m modal token new          # browser khulega, signup karo
 ```
 
----
-
-## Step 1: Modal Account Banao (FREE, $30 Credit Milega)
+## Deploy / Redeploy
 
 ```bash
-modal token new
+cd "d:\CrossEye startup\try projects\modal ai server"
+python -m modal deploy app_test.py
 ```
 
-> Yeh command browser khol degi → GitHub/Google se signup karo → done!  
-> **$30 FREE credit milta hai**, matlab ~2 saal tak free chalega 4 users ke liye.
+## Endpoints
 
----
+| Endpoint | Kya Hai |
+|----------|---------|
+| `GET /ping` | Server alive? (turant) |
+| `GET /status` | AI test - model ko prompt bhejkar verify karta hai |
+| `POST /generate` | AI se jawab lo |
 
-## Step 2: Deploy Karo
-
-Ek hi command:
-```bash
-modal deploy app.py
-```
-
-Pehli baar deploy hone me **2-3 minute** lagenge (model download hoga 9GB).  
-Baad me fast hoga (cache se load hoga).
-
----
-
-## Step 3: URL Lo
-
-Deploy hone ke baad terminal me aisa kuchh dikhega:
-```
-✓ Created Function: personal-ai-server-generate
-✓ Created Function: personal-ai-server-web
-  Web Endpoint: https://YOUR-NAME--personal-ai-server-web.modal.run
-```
-
-**Yehi tumhari server ki public URL hai!** 🎉
-
----
-
-## Step 4: Test Karo
+## Test Commands
 
 ```bash
-# cURL se:
-curl -X POST https://YOUR-NAME--personal-ai-server-web.modal.run/generate \
+# Server alive check
+curl https://crosseye315--ai-server-web.modal.run/ping
+
+# AI working check (cold start ~60-90 sec pehli baar)
+curl https://crosseye315--ai-server-web.modal.run/status -m 180
+
+# Apna prompt do
+curl -X POST https://crosseye315--ai-server-web.modal.run/generate \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Python me fibonacci function likho"}'
-
-# Ya Python client se:
-python client.py "Mumbai ka famous food kya hai?"
+  -d "{\"prompt\": \"Namaste! Kaise ho?\"}" -m 180
 ```
 
----
+Browser me `/docs` kholo (Swagger UI se bhi test kar sakte ho).
 
-## Step 5 (Optional): Friends Ko Share Karo
+## Status Response
 
-URL + unka API key de do. Bas ho gaya.
+Agar AI sahi kam kar raha hai:
+```json
+{"status": "pass", "ai_response": "ok", ...}
+```
 
----
+Agar fail hai:
+```json
+{"status": "fail", "ai_error": "...", ...}
+```
 
-## 🧹 Useful Commands
+## Logs
 
-| Kaam | Command |
-|------|---------|
-| Deploy | `modal deploy app.py` |
-| Test locally | `modal run app.py` |
-| Logs dekhna | `modal app logs personal-ai-server` |
-| Server band karna | `modal app stop personal-ai-server` |
-| Sab delete karna | `modal app delete personal-ai-server` |
+```bash
+python -m modal app logs ai-server
+```
 
----
+## Delete
 
-## 💸 Cost (Kitna Paisa Lagega?)
+```bash
+python -m modal app delete ai-server
+```
 
-| Use Case | Requests/Month | Cost |
-|----------|---------------|------|
-| 4 log × 10 req/day | 300 | **₹2-3** |
-| 4 log × 50 req/day | 1500 | **₹10-15** |
-| Always ON | — | ₹50/month |
+## Cost
 
-> **Modal ke $30 credit se ~60,000+ FREE requests ho jayenge!**  
-> Matlab 4 log normal use karenge to **2 saal tak muft** chalega.
-
----
-
-## ❓ Problems?
-
-| Problem | Solution |
-|---------|----------|
-| `modal: command not found` | `pip install modal` karo |
-| `model download slow` | Pehli baar 2-5 min lagega, baad me fast |
-| `out of memory` | Model already 4-bit quantized hai, T4 pe fit hoga |
-| `cold start slow` | 5 min idle ke baad band hota hai, agli request pe 60s lagta hai |
-
----
-
-**Bas itna hi! Koi dikkat aaye to batao.** 👇
+$30 free credit → ~60,000 requests free. 4 users ke liye basically muft hai.
