@@ -119,6 +119,11 @@ class AITester:
                     self._show_tab("resp")
                     self._render_markdown(self.resp_txt, item["text"])
 
+                elif _type == "model_update":
+                    self.model_lbl.config(text=f"  {item['text']}")
+                    self.status_model_lbl.config(text=item.get("detail", item["text"]))
+                    self.model_status_lbl.config(text=item.get("detail", ""))
+
         except queue.Empty:
             pass
         self.root.after(50, self._poll_queue)
@@ -333,15 +338,16 @@ class AITester:
         self.spinner_canvas.pack(side="left", padx=(0, 8))
         tk.Label(title_frame, text="AI Tester", font=("Segoe UI", 18, "bold"),
                  bg=C_CARD, fg=C_TEXT).pack(side="left")
-        tk.Label(title_frame, text="  Qwen 2.5 7B", font=("Segoe UI", 10),
-                 bg=C_CARD, fg=C_MUTED).pack(side="left", padx=(8, 0))
+        self.model_lbl = tk.Label(title_frame, text="  Groq (auto)", font=("Segoe UI", 10),
+                 bg=C_CARD, fg=C_MUTED)
+        self.model_lbl.pack(side="left", padx=(8, 0))
 
         # Right: Credit
         credit_frame = tk.Frame(hdr, bg=C_CARD)
         credit_frame.pack(side="right", padx=20)
         self.usage_lbl = tk.Label(credit_frame,
-                                  text=f"${FREE_CREDIT:.2f} free  |  $0.00 spent",
-                                  font=("Segoe UI", 10, "bold"),
+                                  text=f"Groq ~1M ⎸ Gemini ~1M ⎸ Qwen ${FREE_CREDIT:.0f}",
+                                  font=("Segoe UI", 9, "bold"),
                                   bg=C_CARD, fg=C_GREEN)
         self.usage_lbl.pack()
 
@@ -411,6 +417,28 @@ class AITester:
                             relief="flat", bd=4, font=("Segoe UI", 9))
             sp.pack(side="left", padx=(4, 0))
 
+        # ── Model selector ──
+        model_frame = tk.Frame(left, bg=C_CARD)
+        model_frame.pack(fill="x", pady=(0, 6))
+        model_row = tk.Frame(model_frame, bg=C_CARD)
+        model_row.pack(fill="x", padx=12, pady=6)
+        tk.Label(model_row, text="MODEL", font=("Segoe UI", 8, "bold"),
+                 bg=C_CARD, fg=C_MUTED).pack(side="left")
+        self.model_var = tk.StringVar(value="auto")
+        model_menu = tk.OptionMenu(model_row, self.model_var,
+                                   "auto", "groq", "gemini", "qwen")
+        model_menu.config(bg=C_INPUT, fg=C_TEXT, relief="flat", bd=4,
+                          font=("Segoe UI", 9), highlightthickness=0,
+                          activebackground=C_INPUT, activeforeground=C_TEXT)
+        model_menu["menu"].config(bg=C_INPUT, fg=C_TEXT, font=("Segoe UI", 9))
+        model_menu.pack(side="left", padx=(8, 0))
+
+        # Model status labels
+        self.model_status_lbl = tk.Label(model_row, text="",
+                                         font=("Segoe UI", 8),
+                                         bg=C_CARD, fg=C_MUTED)
+        self.model_status_lbl.pack(side="right")
+
         # ── Action row ──
         action_frame = tk.Frame(left, bg=C_CARD)
         action_frame.pack(fill="x")
@@ -418,7 +446,7 @@ class AITester:
         bottom_row.pack(fill="x", padx=12, pady=8)
 
         self.stream_var = tk.BooleanVar(value=True)
-        stream_cb = tk.Checkbutton(bottom_row, text="Stream (token by token)",
+        stream_cb = tk.Checkbutton(bottom_row, text="Stream",
                                    variable=self.stream_var,
                                    bg=C_CARD, fg=C_MUTED, selectcolor=C_INPUT,
                                    activebackground=C_CARD,
@@ -557,8 +585,10 @@ class AITester:
         self.status_lbl = tk.Label(status_frame, text="Ready",
                                    font=("Segoe UI", 9), bg=C_CARD, fg=C_MUTED)
         self.status_lbl.pack(side="left", padx=12)
-        tk.Label(status_frame, text="Model: Qwen 2.5 7B | GPU: T4",
-                 font=("Segoe UI", 9), bg=C_CARD, fg=C_MUTED).pack(side="right", padx=12)
+        self.status_model_lbl = tk.Label(status_frame,
+                                          text="Groq \u2192 Gemini \u2192 Qwen",
+                                          font=("Segoe UI", 9), bg=C_CARD, fg=C_MUTED)
+        self.status_model_lbl.pack(side="right", padx=12)
 
     # ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
     #  Helpers
@@ -671,6 +701,7 @@ class AITester:
             url = f"{base}/generate_stream"
             payload = {
                 "prompt": prompt,
+                "model": self.model_var.get(),
                 "max_tokens": int(self.svars["max_tokens"].get()),
                 "temperature": self.svars["temperature"].get(),
                 "top_p": self.svars["top_p"].get(),
@@ -712,16 +743,32 @@ class AITester:
                         truncated = ev.get("truncated", False)
                         total_spent = ev.get("total_spent_usd", 0)
 
+                        provider = ev.get("provider", "qwen")
+                        provider_label = ev.get("provider_label", "Qwen")
+                        fallback_chain = ev.get("fallback_chain", [])
+                        tokens_remaining = ev.get("tokens_remaining", 0)
+
+                        # Update model display
+                        self._q(type="model_update",
+                                text=provider_label,
+                                detail=f"{provider_label} ⎸ {tokens_remaining:,} tokens left")
+
                         self._q(type="tok_lbl",
                                 text=f"Input: {inp}  |  Output: {out}  |  Total: {inp+out} tokens")
                         self._q(type="elapsed_lbl",
-                                text=f"Cost: ${cost:.6f}  |  Remaining: ${rem}  |  {tm:.1f}s")
+                                text=f"Using: {provider_label}  |  {tm:.1f}s")
 
-                        # Sync local total with server's persistent ledger
-                        self.total_spent = total_spent
-                        left = max(0, FREE_CREDIT - total_spent)
+                        # Show fallback chain if any
+                        if fallback_chain:
+                            fb_str = " ".join(fallback_chain)
+                            self._q(type="elapsed_lbl",
+                                    text=f"Using: {provider_label}  |  Skipped: {fb_str}  |  {tm:.1f}s")
+                        else:
+                            self._q(type="elapsed_lbl",
+                                    text=f"Using: {provider_label}  |  {tm:.1f}s")
+
                         self._q(type="usage_lbl",
-                                text=f"${left:.2f} free  |  ${total_spent:.6f} spent")
+                                text=f"{tokens_remaining:,} token left for {provider}")
 
                         if truncated:
                             self._q(type="token",
@@ -751,6 +798,7 @@ class AITester:
             url = f"{base}/generate"
             payload = {
                 "prompt": prompt,
+                "model": self.model_var.get(),
                 "max_tokens": int(self.svars["max_tokens"].get()),
                 "temperature": self.svars["temperature"].get(),
                 "top_p": self.svars["top_p"].get(),
@@ -772,22 +820,29 @@ class AITester:
                 u = d.get("usage", {})
                 inp = u.get("input_tokens", "?")
                 out = u.get("output_tokens", "?")
-                cost = u.get("estimated_cost_usd", 0)
-                rem = u.get("remaining_credit_usd", "?")
                 tm = d.get("time_sec", elapsed)
                 truncated = d.get("truncated", False)
-                total_spent = u.get("total_spent_usd", 0)
+                provider = d.get("model_used", "Qwen")
+                tokens_remaining = u.get("tokens_remaining", 0)
+
+                self._q(type="model_update",
+                        text=d.get("model_used", "Qwen"),
+                        detail=f"{provider} ⎸ {tokens_remaining:,} tokens left")
 
                 self._q(type="tok_lbl",
                         text=f"Input: {inp}  |  Output: {out}  |  Total: {inp+out} tokens")
-                self._q(type="elapsed_lbl",
-                        text=f"Cost: ${cost:.6f}  |  Remaining: ${rem}  |  {tm:.1f}s")
 
-                # Sync local total with server's persistent ledger
-                self.total_spent = total_spent
-                left = max(0, FREE_CREDIT - total_spent)
+                fallback_chain = d.get("fallback_chain", [])
+                if fallback_chain:
+                    fb_str = " ".join(fallback_chain)
+                    self._q(type="elapsed_lbl",
+                            text=f"Using: {provider}  |  Skipped: {fb_str}  |  {tm:.1f}s")
+                else:
+                    self._q(type="elapsed_lbl",
+                            text=f"Using: {provider}  |  {tm:.1f}s")
+
                 self._q(type="usage_lbl",
-                        text=f"${left:.2f} free  |  ${total_spent:.6f} spent")
+                        text=f"{tokens_remaining:,} tokens left for {provider.split('(')[0].strip()}")
 
                 if truncated:
                     self._q(type="token",
