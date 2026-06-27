@@ -712,6 +712,21 @@ class AITester:
             full = ""
             usage = {}
             tokens_received = 0
+            event_received = False
+
+            # Check for server error before parsing SSE
+            if resp.status_code != 200:
+                err_text = f"Server returned HTTP {resp.status_code}"
+                try:
+                    err_body = resp.json()
+                    err_text += f": {err_body.get('error', err_body.get('detail', ''))}"
+                except:
+                    err_text += f" — {resp.text[:200]}"
+                self._q(type="token", text=f"\n[Error] {err_text}\n")
+                self._q(type="log", text=f"HTTP {resp.status_code}", fg=C_RED)
+                self._save_hist(prompt, err_text, {}, 0, False)
+                self._q(type="raw", text=json.dumps({"error": err_text}, indent=2))
+                return
 
             for line in resp.iter_lines(decode_unicode=False):
                 if not line:
@@ -723,6 +738,7 @@ class AITester:
                     except:
                         continue
                 if line.startswith("data: "):
+                    event_received = True
                     ev = json.loads(line[6:])
                     if ev["type"] == "token":
                         full += ev["text"]
@@ -796,6 +812,13 @@ class AITester:
 
             self._q(type="raw", text=json.dumps(usage, indent=2, ensure_ascii=False))
 
+            if not event_received and not full:
+                # No SSE events processed and no content — likely server issue
+                err_msg = "No response from server (billing limit or cold start)"
+                self._q(type="token", text=f"\n[{err_msg}]\n")
+                self._q(type="log", text=err_msg, fg=C_RED)
+                self._save_hist(prompt, err_msg, {}, 0, False)
+
         except Exception as e:
             self._q(type="token", text=f"\nError: {e}\n")
             self._q(type="log", text="Error", fg=C_RED)
@@ -814,8 +837,22 @@ class AITester:
             }
             t0 = time.time()
             r = requests.post(url, json=payload, timeout=300)
-            d = r.json()
             elapsed = time.time() - t0
+
+            # Check for server error
+            if r.status_code != 200:
+                err_text = f"Server returned HTTP {r.status_code}"
+                try:
+                    err_body = r.json()
+                    err_text += f": {err_body.get('error', err_body.get('detail', ''))}"
+                except:
+                    err_text += f" — {r.text[:200]}"
+                self._q(type="token", text=f"\n[Error] {err_text}\n")
+                self._q(type="log", text=f"HTTP {r.status_code}", fg=C_RED)
+                self._save_hist(prompt, err_text, {}, 0, False)
+                return
+
+            d = r.json()
 
             if d.get("success"):
                 resp_text = d["response"]
