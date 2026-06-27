@@ -12,26 +12,29 @@ from transformers import (
 from threading import Thread
 
 # ── Config ─────────────────────────────────────────────────────
-MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+# All values can be overridden via env vars (Modal Secrets or .env)
+MODEL_ID = os.environ.get("QWEN_MODEL_ID", "Qwen/Qwen2.5-7B-Instruct")
 COST_PER_1K = 0.00005
 FREE_CREDIT = 30.0
 MAX_TOKENS_DEFAULT = 1536
 MAX_TOKENS_LIMIT = 4096
 API_KEY = os.environ.get("API_KEY", "")
 
-# Provider API keys (from Modal secrets)
+# Provider API keys (from Modal secrets / .env)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Provider config
+# Model names (configurable via env vars)
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-70b-versatile")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+
+# Provider config (labels auto-update with model names)
 PROVIDER_PRIORITY = ["groq", "gemini", "qwen"]
 PROVIDER_LABELS = {
-    "groq": "Groq (Llama 3.1 70B)",
-    "gemini": "Gemini 2.0 Flash",
-    "qwen": "Qwen 2.5 7B (Self-hosted)",
+    "groq": f"Groq ({GROQ_MODEL})",
+    "gemini": f"Gemini ({GEMINI_MODEL})",
+    "qwen": f"{MODEL_ID.split('/')[-1]} (Self-hosted)",
 }
-GROQ_MODEL = "llama-3.1-70b-versatile"
-GEMINI_MODEL = "gemini-2.0-flash"
 
 # Approximate free-tier limits for auto-fallback
 PROVIDER_LIMITS = {

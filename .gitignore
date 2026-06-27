@@ -27,3 +27,4 @@ nul
 
 # Modal deployment
 *.modal/
+env_temp
