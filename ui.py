@@ -713,8 +713,16 @@ class AITester:
             usage = {}
             tokens_received = 0
 
-            for line in resp.iter_lines(decode_unicode=True):
-                if line and line.startswith("data: "):
+            for line in resp.iter_lines(decode_unicode=False):
+                if not line:
+                    continue
+                # Handle both bytes and str (requests can return either)
+                if isinstance(line, bytes):
+                    try:
+                        line = line.decode("utf-8")
+                    except:
+                        continue
+                if line.startswith("data: "):
                     ev = json.loads(line[6:])
                     if ev["type"] == "token":
                         full += ev["text"]

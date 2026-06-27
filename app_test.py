@@ -241,22 +241,25 @@ def web():
             stream_options={"include_usage": True},
         )
         inp_tok = 0
-        full = ""
+        out_tok = 0
+        truncated = False
         for chunk in stream:
             delta = chunk.choices[0].delta if chunk.choices else None
             if delta and delta.content:
-                full += delta.content
+                out_tok += 1
                 yield delta.content, None
             if chunk.usage:
-                inp_tok = chunk.usage.prompt_tokens or 0
-                out_tok = chunk.usage.completion_tokens or 0
+                inp_tok = chunk.usage.prompt_tokens or inp_tok
+                out_tok = chunk.usage.completion_tokens or out_tok
                 _add_provider_usage("groq", inp_tok + out_tok)
-                truncated = chunk.choices[0].finish_reason == "length" if chunk.choices else False
-                yield ("__DONE__", {
-                    "input_tokens": inp_tok,
-                    "output_tokens": out_tok,
-                    "truncated": truncated,
-                })
+                if chunk.choices and chunk.choices[0].finish_reason == "length":
+                    truncated = True
+        # Always yield DONE — even if usage chunk was missing
+        yield ("__DONE__", {
+            "input_tokens": inp_tok,
+            "output_tokens": out_tok,
+            "truncated": truncated,
+        })
 
     def _gemini_generate(prompt, max_tokens, temp, top_p, system_prompt):
         contents = prompt
@@ -295,18 +298,15 @@ def web():
         )
         inp_tok = max(1, len(prompt.split()) * 2)
         out_tok = 0
-        full = ""
         for chunk in stream:
             if chunk.text:
-                full += chunk.text
                 out_tok += max(1, len(chunk.text.split()))
                 yield chunk.text, None
         _add_provider_usage("gemini", inp_tok + out_tok)
-        truncated = False
         yield ("__DONE__", {
             "input_tokens": inp_tok,
             "output_tokens": out_tok,
-            "truncated": truncated,
+            "truncated": False,
         })
 
     def _qwen_generate(prompt, max_tokens, temp, top_p, system_prompt):
