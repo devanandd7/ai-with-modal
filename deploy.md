@@ -15,27 +15,77 @@ Your Browser (UI)
 ```
 
 - API keys **sirf Modal server ke andar** rehte hain — kabhi client/browser tak nahi pahunchte
-- Keys **code me nahi likhni** — Modal Secrets me store hoti hain, encrypted
-- Git me kuch nahi jaata (`.gitignore` me `.env` already hai)
+- Keys **code me nahi likhni** — `.env` file me locally rakho, Modal Secrets me deploy hota hai
+- `.env` **`.gitignore` me hai** — kabhi commit nahi hoga
 - UI sirf prompt bhejta hai, API keys ki zaroorat nahi
 
 ---
 
-## Pehle Baar Setup
+## Quick Deploy (Sabse Aasan)
+
+Sirf **2 cheezein** karni hain:
+
+### 1. Pehli Baar Setup
 
 ```bash
 pip install modal
-python -m modal token new          # browser khulega, signup karo
+python -m modal token new    # browser khulega, signup karo
 ```
 
-## API Keys Set Karna (Modal Secrets)
-
-**Step 1: Secret create karo (ek baar)**
+### 2. `.env` File Banao
 
 ```bash
-modal secret create ai-server-keys \
-  GROQ_API_KEY="gsk_your_groq_api_key_here" \
-  GEMINI_API_KEY="AIza_your_gemini_api_key_here"
+copy .env.example .env
+```
+
+Ab `.env` file kholo aur apni API keys daalo:
+```
+GROQ_API_KEY=gsk_...        # https://console.groq.com/keys
+GEMINI_API_KEY=AIza_...     # https://aistudio.google.com/apikey
+API_KEY=                    # optional: rakho empty agar auth nahi chahiye
+```
+
+### 3. Deploy Karo (Ek Hi Command)
+
+```bash
+deploy.bat
+```
+
+Ye **ek saath** karega:
+1. `.env` file padhega
+2. `Modal Secret` create karega (encrypted)
+3. Server deploy karega
+
+**Bas!** API keys manually Modal dashboard me nahi dalni padti.
+
+---
+
+## Manual Deploy (Bina deploy.bat ke)
+
+Agar `deploy.bat` use nahi karna, to manual bhi kar sakte ho:
+
+### Step 1: Modal Secret Create Karo
+
+```bash
+modal secret create ai-server-keys GROQ_API_KEY=gsk_... GEMINI_API_KEY=AIza_...
+```
+
+Optional auth:
+```bash
+modal secret create ai-server-keys GROQ_API_KEY=gsk_... GEMINI_API_KEY=AIza_... API_KEY=mypassword
+```
+
+### Step 2: Deploy Karo
+
+```bash
+modal deploy app_test.py
+```
+
+### Secret Update Karna
+
+```bash
+modal secret create ai-server-keys GROQ_API_KEY=new_key GEMINI_API_KEY=new_key
+# Same command se overwrite ho jayega
 ```
 
 > 💡 **Free API keys kahan se milein:**
@@ -43,38 +93,7 @@ modal secret create ai-server-keys \
 > - **Gemini:** https://aistudio.google.com/apikey → "Create API Key" (free tier: 60 req/min)
 > - **Qwen (OSS):** koi API key nahi chahiye — Modal ke T4 GPU pe self-hosted hai
 
-**Optional — Auth bhi enable karna chahte ho to:**
-
-```bash
-modal secret create ai-server-keys \
-  GROQ_API_KEY="gsk_..." \
-  GEMINI_API_KEY="AIza_..." \
-  API_KEY="kuch-bhi-password-daalo"
-```
-
-`API_KEY` set karoge to har request me `X-API-Key` header dena hoga (avoid public abuse).
-
-**Step 2: Secret verify karo**
-
-```bash
-modal secret list
-# → ai-server-keys dikhna chahiye
-```
-
-## Deploy / Redeploy
-
-```bash
-cd "D:\CrossEye startup\try projects\modal ai server"
-modal deploy app_test.py
-```
-
-> ⚠️ **Important:** Deploy karte waqt Modal automatically `ai-server-keys` secret 
-> ko detect karega (kyunki `app_test.py` me `GROQ_API_KEY` / `GEMINI_API_KEY` 
-> environment variables use ho rahe hain). Agar nahi detect kare to manually 
-> attach karo:
-> ```bash
-> modal deploy app_test.py --secret ai-server-keys
-> ```
+---
 
 ## Test Karna
 
@@ -82,7 +101,7 @@ modal deploy app_test.py
 # Server alive?
 curl https://crosseye315--ai-server-web.modal.run/ping
 
-# Available models check
+# Available models + remaining tokens check
 curl https://crosseye315--ai-server-web.modal.run/models
 
 # Auto mode (Groq → Gemini → Qwen fallback)
@@ -98,11 +117,13 @@ curl -X POST https://crosseye315--ai-server-web.modal.run/generate_stream \
 # Agar API_KEY set hai to header dena hoga:
 curl -X POST https://crosseye315--ai-server-web.modal.run/generate \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: kuch-bhi-password-daalo" \
+  -H "X-API-Key: mypassword" \
   -d '{"prompt": "Hello"}' -m 180
 ```
 
 Browser me `/docs` kholo (Swagger UI se bhi test kar sakte ho).
+
+---
 
 ## Models & Auto-Fallback
 
@@ -112,8 +133,10 @@ Browser me `/docs` kholo (Swagger UI se bhi test kar sakte ho).
 | **Gemini** (Gemini 2.0 Flash) | `GEMINI_API_KEY` ✅ | ~1M tokens/day | 2nd (fallback) |
 | **Qwen** (Qwen 2.5 7B) | None (self-hosted) | $30 Modal credit | 3rd (last resort) |
 
-Auto mode me: Groq → Gemini → Qwen. Har provider ka usage track hota hai, 
+Auto mode me: Groq → Gemini → Qwen. Har provider ka usage track hota hai,
 jab <15% tokens bache to next provider pe switch ho jata hai.
+
+---
 
 ## Logs
 
