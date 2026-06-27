@@ -95,7 +95,7 @@ class Reply(BaseModel):
     image=img, gpu="T4",
     volumes={"/cache": vol},
     scaledown_window=300,
-    secrets=[modal.Secret.from_name("ai-server-keys")],
+    secrets=[modal.Secret.from_name("custom-secret-modal-ai")],
 )
 @modal.concurrent(max_inputs=2)
 @modal.asgi_app()
